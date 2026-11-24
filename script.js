@@ -96,7 +96,11 @@ const BUILDINGS = {
   "1000089": "Firespitter",
   "1000093": "Helper Hut",
   "1000097": "Crafting Station",
-  "1000102": "Super Wizard Tower"
+  "1000102": "Super Wizard Tower",
+  "1000105": "Guardian Shrine",
+  "1000106": "Squad Barracks",
+  "1000107": "Spiky Tower",
+  "1000108": "Firecracker Tower"
 }
 
 const TRAPS = {
@@ -153,7 +157,26 @@ const LAB_TROOPS = {
   "4000123": "Druid",
   "4000132": "Thrower",
   "4000150": "Furnace",
-  "4000177": "Meteor Golem"
+  "4000177": "Meteor Golem",
+  "4000194": "Totem Thrower",
+  "4000195": "Barch Squad",
+  "4000196": "Giant Wizard Squad",
+  "4000197": "Wall Breaker Squad",
+  "4000198": "Minion Squad",
+  "4000199": "Balloon Squad",
+  "4000200": "Golem Witch Squad",
+  "4000201": "Hog Rider Squad",
+  "4000202": "Miner Squad",
+  "4000203": "Healer Squad",
+  "4000204": "P.E.K.K.A Titan Squad",
+  "4000205": "Dragon Squad",
+  "4000206": "Baby Dragon Squad"
+}
+
+const GUARDIANS = {
+  "107000000": "Longshot",
+  "107000001": "Smasher",
+  "107000008": "Logger"
 }
 
 const SIEGE_MACHINES = {
@@ -243,7 +266,8 @@ const LAB_SPELLS = {
   "26000098": "Revive Spell",
   "26000109": "Ice Block Spell",
   "26000120": "Totem Spell",
-  "26000123": "Angry Spell"
+  "26000123": "Angry Spell",
+  "26000153": "Heroic Spell"
 }
 
 const PETS = {
@@ -265,6 +289,7 @@ const ITEM_NAMES = {
   Building: BUILDINGS,
   Trap: TRAPS,
   Hero: HEROES,
+  Guardian: GUARDIANS,
   "Builder Base Hero": HEROES,
   "Lab Troop": LAB_TROOPS,
   "Siege Machine": SIEGE_MACHINES,
@@ -387,6 +412,7 @@ function parseVillage(raw, previous = null) {
     ["buildings", "Building"],
     ["traps", "Trap"],
     ["heroes", "Hero"],
+    ["guardians", "Guardian"],
     ["units", "Lab Troop"],
     ["spells", "Lab Spell"],
     ["siege_machines", "Siege Machine"],
@@ -440,6 +466,8 @@ function parseVillage(raw, previous = null) {
         category,
         level,
         workSeconds: object.timer,
+        // The export marks Goblin Builder/Researcher jobs with extra: true.
+        isGoblin: object.extra === true,
         helperSeconds: Math.max(
           0,
           Number(object.helper_timer) || 0
@@ -580,9 +608,11 @@ function activeBoostLabels(village) {
 }
 
 function freeBuilderLabel(village) {
-  const builderCategories = ["Building", "Trap", "Hero"]
+  const builderCategories = ["Building", "Trap", "Hero", "Guardian"]
   const busy = (village.items || []).filter(item =>
     builderCategories.includes(item.category) &&
+    // Goblin jobs run in the extra slot and leave regular builders free.
+    !item.isGoblin &&
     calculateFinish(village, item).getTime() > Date.now()
   ).length
   const importedTotal = Number(village.homeBuilderCount)
@@ -610,6 +640,7 @@ function freeBuilderBaseBuilderLabel(village) {
   ]
   const busy = (village.items || []).filter(item =>
     builderCategories.includes(item.category) &&
+    !item.isGoblin &&
     calculateFinish(village, item).getTime() > Date.now()
   ).length
   const importedTotal = Number(village.builderBaseBuilderCount)
@@ -631,6 +662,7 @@ function freeBuilderBaseBuilderLabel(village) {
 function categoryIsActive(village, categories) {
   return (village.items || []).some(item =>
     categories.includes(item.category) &&
+    !item.isGoblin &&
     calculateFinish(village, item).getTime() > Date.now()
   )
 }
@@ -799,7 +831,15 @@ function compactName(name) {
 }
 
 function upgradeTitle(item) {
-  return compactName(item.name)
+  const goblinLabel = item.isGoblin
+    ? (["Lab Troop", "Lab Spell", "Siege Machine"].includes(item.category)
+      ? "GOBLIN RESEARCHER"
+      : "GOBLIN BUILDER")
+    : ""
+
+  return goblinLabel
+    ? `${goblinLabel} · ${compactName(item.name)}`
+    : compactName(item.name)
 }
 
 function upgradeGroup(item) {
@@ -1124,7 +1164,7 @@ async function scheduleNotifications(village) {
       " · " +
       upgradeGroup(item) +
       ": " +
-      item.name +
+      upgradeTitle(item) +
       " is finished upgrading."
 
     n.sound = "default"
